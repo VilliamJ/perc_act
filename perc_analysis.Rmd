@@ -1,0 +1,81 @@
+---
+title: "perception_action"
+output: html_document
+date: "2023-11-30"
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(tidyverse)
+
+theme_set(theme_bw())
+```
+
+```{r}
+df <- 
+  list.files(path = "/Users/villiamjensen/Documents/Cognitive Science/3. semester/Perception and Action/Exam/logfiles/", pattern = "*.csv", full.names = TRUE) %>%
+  map_df(~read_csv(.))
+
+
+df <- df %>% 
+  rename("trial" = ...1,
+         "correct" = correct_choice
+         )
+
+
+df$trial <- df$trial + 1
+
+```
+
+```{r}
+df <- df %>% 
+  mutate(
+    "hue_diff" = hue_left - hue_right,
+    "size_diff" = size_left - size_right,
+    "brightness_diff" = brightness_left - brightness_right,
+    "hue_diff_abs" = abs(hue_diff),
+    "size_diff_abs" = abs(size_diff),
+    "brightness_diff_abs" = abs(brightness_diff)
+   )
+```
+
+```{r}
+df <- df %>% group_by(id) %>% 
+  mutate("sum_correct" = sum(correct),
+         "avg_correct" = sum(correct)/length(trial)
+  )
+
+df_aggr <- df %>% aggregate(sum_correct ~ id + gender, mean)
+  
+```
+
+
+```{r}
+df %>% 
+  ggplot(aes(x = hue_diff_abs, y = correct)) + 
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
+ labs(title = "hue")
+
+df %>% 
+  ggplot(aes(x = brightness_diff_abs, y = correct)) + 
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) +
+   labs(title = "brightness")
+
+df %>% 
+  ggplot(aes(x = size_diff_abs, y = correct)) + 
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
+  labs(title = "size")
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
