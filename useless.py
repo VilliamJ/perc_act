@@ -1,4 +1,3 @@
-# load modules
 from psychopy import visual, core, event, data, gui
 import pandas as pd
 import os
@@ -30,8 +29,9 @@ date = data.getDateStr()
 
 # define logfile
 # prepare pandas data frame for recorded data
-columns = ['time_stamp', 'id', 'age', 'gender', 'brightness_left', 'size_left', 'hue_left',
-           'brightness_right', 'size_right', 'hue_right', 'same_size', 'keypress', 'correct_choice', 'reaction_time']
+columns = ['time_stamp', 'id', 'age', 'gender', 'brightness_left', 'size_left', 'hue_left', 'saturation_left',
+           'brightness_right', 'size_right', 'hue_right', 'saturation_right', 'color_left', 'color_right',
+           'same_size', 'keypress', 'correct_choice', 'reaction_time']
 logfile = pd.DataFrame(columns=columns)
 
 # make sure that there is a logfile directory and otherwise make one
@@ -53,24 +53,16 @@ goodbye = '''
 The experiment is done. Thank you for your participation
 '''
 
+
 # function for showing text and waiting for a key press
 def msg(txt):
     message = visual.TextStim(win, text=txt, alignText="left", height=0.05)
     message.draw()
     win.flip()
     event.waitKeys()
-    core.wait(0.5)
+    core.wait(1)
 
-
-# show instructions
 msg(instruction)
-
-
-#function for showing circles
-
-def show_circles():
-    circle1 = visual.Circle(win, radius = size_left, value_
-    
 
 # function for showing circles
 def show_circles():
@@ -78,13 +70,13 @@ def show_circles():
     brightness_left = random.uniform(0.5, 1)
     hue_left = random.uniform(0, 1)
     size_left = random.uniform(0.1, 0.15)
-    saturation_left = random.uniform(0.5, 1)
+    saturation_left = random.uniform(0.7, 1)
 
     # Randomize brightness, hue, and size for the right circle
     brightness_right = random.uniform(0.5, 1)
-    hue_right = random.uniform(0.5, 1)
+    hue_right = random.uniform(0, 1)
     size_right = random.uniform(0.1, 0.15)
-    saturation_right = random.uniform(0.5, 1)
+    saturation_right = random.uniform(0.7, 1)
 
     # Convert RGB to HSV for logging
     color_rgb_left = colorsys.hsv_to_rgb(hue_left, saturation_left, brightness_left)
@@ -98,54 +90,62 @@ def show_circles():
     circle2.draw()
     fixation_cross.draw()
     win.flip()
-    
+
     core.wait(0.15)
-    
+
     # clear screen
     win.flip()
 
-    return brightness_left, size_left, saturation_left, saturation_right, hue_left, brightness_right, size_right, hue_right, color_rgb_left, color_rgb_right
-
+    return (
+        brightness_left, size_left, hue_left, saturation_left,
+        brightness_right, size_right, hue_right, saturation_right,
+        color_rgb_left, color_rgb_right
+    )
 
 # preparing circles stimulus
 for _ in range(10):
     # show stimulus circles
-    brightness_left, size_left, hue_left, saturation_left, brightness_right, size_right, hue_right, saturation_right, color_rgb_left, color_rgb_right = show_circles()
+    (
+        brightness_left, size_left, hue_left, saturation_left,
+        brightness_right, size_right, hue_right, saturation_right,
+        color_rgb_left, color_rgb_right
+    ) = show_circles()
 
     # start recording reaction time
     stopwatch.reset()
 
-    # check if the circles are the same or different in size
-    same_size = 1 if size_left == size_right else 0
-
     # get response
-    response = get_response()
+    response = event.waitKeys(keyList=['left', 'right'])[0]
 
     # check if the participant chose the correct circle (the largest)
-    correct_choice = 1 if ((size_left > size_right) and response == 'left') or ((size_left < size_right) and response == 'right') else 0
+    correct_choice = 1 if (
+            (size_left > size_right) and response == 'left') or (
+            (size_left < size_right) and response == 'right') else 0
 
     # get reaction time
     reaction_time = stopwatch.getTime()
 
-    # record data, appending color information
+    # record data, appending color and saturation information
     logfile = logfile.append({
         'time_stamp': date,
         'id': ID,
         'age': AGE,
         'gender': GENDER,
-        'brightness_left': brightness_left,
-        'size_left': size_left,
-        'hue_left': hue_left,
-        'brightness_right': brightness_right,
-        'size_right': size_right,
-        'hue_right': hue_right,
-        'color_left': color_rgb_left,  # Append color information
-        'color_right': color_rgb_right,  # Append color information
-        'same_size': same_size,
+        'brightness_left': round(brightness_left, 2),
+        'size_left': round(size_left, 2),
+        'hue_left': round(hue_left,2),
+        'saturation_left': round(saturation_left, 2),
+        'brightness_right': round(brightness_right, 2),
+        'size_right': round(size_right, 4),
+        'hue_right': round(hue_right, 4),
+        'saturation_right': round(saturation_right, 2),
+        'color_left': color_rgb_left,
+        'color_right': color_rgb_right,
         'keypress': response,
         'correct_choice': correct_choice,
-        'reaction_time': reaction_time
+        'reaction_time': round(reaction_time, 2)
     }, ignore_index=True)
+    
 
     # display for 250 ms
     win.flip()
@@ -156,8 +156,6 @@ for _ in range(10):
 
     # delay before the next trial
     core.wait(0.3)
-
-
 
 # save data to directory
 logfile.to_csv(logfile_name)
