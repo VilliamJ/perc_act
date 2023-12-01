@@ -45,7 +45,7 @@ logfile_name = "logfiles/logfile_{}_{}.csv".format(ID, date)
 instruction = '''
 Welcome to this experiment!\n\n
 In a moment, two circles will flash at the same time on the screen. \n\n
-Your task is to select the circle you perceive as being the biggest. You do this by pressing either the left or right arrow key on your keyboard. If they are the same size, press S on the keyboard.\n\n\n
+Your task is to select the circle you perceive as being the biggest. You do this by pressing either the left or right arrow key on your keyboard. \n\n\n
 If you understand these rules, please press any key to begin the experiment.
 '''
 
@@ -61,70 +61,34 @@ def msg(txt):
     event.waitKeys()
     core.wait(0.5)
 
-# function for showing circles
-def show_circles():
-    # Randomize brightness, hue, and size for the left circle
-    brightness_left = random.uniform(0, 1)
-    hue_left = random.uniform(0, 1)
-    size_left = random.uniform(0.1, 0.15)
-
-    # Randomize brightness, hue, and size for the right circle
-    brightness_right = random.uniform(0, 1)
-    hue_right = random.uniform(0, 1)
-    size_right = random.uniform(0.1, 0.15)
-
-    # Convert RGB to HSV for logging
-    color_rgb_left = colorsys.hsv_to_rgb(hue_left, 1.0, brightness_left)
-    color_rgb_right = colorsys.hsv_to_rgb(hue_right, 1.0, brightness_right)
-
-    circle1 = visual.Circle(win, radius=size_left, fillColor=color_rgb_left, pos=(-0.5, 0))
-    circle2 = visual.Circle(win, radius=size_right, fillColor=color_rgb_right, pos=(0.5, 0))
-    fixation_cross = visual.TextStim(win, text='+', pos=(0, 0), color='white', height=0.05)
-
-    circle1.draw()
-    circle2.draw()
-    fixation_cross.draw()
-    win.flip()
-    
-    core.wait(0.15)
-    
-     # clear screen
-    win.flip()
-
-    return brightness_left, size_left, hue_left, brightness_right, size_right, hue_right
-
-# function for getting and evaluating a key response
-def get_response():
-    key = event.waitKeys(keyList=["left", "right", "s"])
-    if key[0] == "escape":
-        core.quit()
-    elif key[0] == "s":
-        response = 'same'
-    else:
-        response = key[0]
-
-    return response
 
 # show instructions
 msg(instruction)
+
+
+#function for showing circles
+
+def show_circles():
+    circle1 = visual.Circle(win, radius = size_left, value_
+    
 
 # function for showing circles
 def show_circles():
     # Randomize brightness, hue, and size for the left circle
     brightness_left = random.uniform(0.5, 1)
     hue_left = random.uniform(0, 1)
-    size_left = random.uniform(0.1, 0.2)
-    value_left = random.uniform(0.5, 1)
+    size_left = random.uniform(0.1, 0.15)
+    saturation_left = random.uniform(0.5, 1)
 
     # Randomize brightness, hue, and size for the right circle
     brightness_right = random.uniform(0.5, 1)
     hue_right = random.uniform(0.5, 1)
-    size_right = random.uniform(0.1, 0.2)
-    value_right = random.uniform(0.5, 1)
+    size_right = random.uniform(0.1, 0.15)
+    saturation_right = random.uniform(0.5, 1)
 
     # Convert RGB to HSV for logging
-    color_rgb_left = colorsys.hsv_to_rgb(hue_left, value_left, brightness_left)
-    color_rgb_right = colorsys.hsv_to_rgb(hue_right, value_right, brightness_right)
+    color_rgb_left = colorsys.hsv_to_rgb(hue_left, saturation_left, brightness_left)
+    color_rgb_right = colorsys.hsv_to_rgb(hue_right, saturation_right, brightness_right)
 
     circle1 = visual.Circle(win, radius=size_left, fillColor=color_rgb_left, pos=(-0.5, 0))
     circle2 = visual.Circle(win, radius=size_right, fillColor=color_rgb_right, pos=(0.5, 0))
@@ -140,13 +104,13 @@ def show_circles():
     # clear screen
     win.flip()
 
-    return brightness_left, size_left, hue_left, brightness_right, size_right, hue_right, color_rgb_left, color_rgb_right
+    return brightness_left, size_left, saturation_left, saturation_right, hue_left, brightness_right, size_right, hue_right, color_rgb_left, color_rgb_right
 
 
 # preparing circles stimulus
 for _ in range(10):
     # show stimulus circles
-    brightness_left, size_left, hue_left, brightness_right, size_right, hue_right, color_rgb_left, color_rgb_right = show_circles()
+    brightness_left, size_left, hue_left, saturation_left, brightness_right, size_right, hue_right, saturation_right, color_rgb_left, color_rgb_right = show_circles()
 
     # start recording reaction time
     stopwatch.reset()
