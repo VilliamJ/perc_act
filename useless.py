@@ -46,7 +46,7 @@ instruction = '''
 Welcome to this experiment!\n\n
 In a moment, two circles will flash at the same time on the screen. \n\n
 Your task is to select the circle you perceive as being the biggest. You do this by pressing either the left or right arrow key on your keyboard. \n\n\n
-Before starting please place your hand on the left and right arrow key, so you are ready to answer. If you understand these rules, please press any key to begin and the experiment will begin immediately.
+Before starting please place your hand on the left and right arrow key, so you are ready to answer. If you understand these rules, please press the spacebar to begin and the experiment will begin immediately.
 '''
 
 goodbye = '''

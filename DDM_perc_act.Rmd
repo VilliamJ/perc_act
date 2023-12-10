@@ -1,0 +1,78 @@
+---
+title: "DDM_perc_act"
+output: html_document
+date: "2023-12-07"
+---
+
+```{r setup, include=FALSE}
+b_df <- read.delim("/Users/villiamjensen/Downloads/sampleData_hBayesDM_0.2.0-1d9qdvj/gng_exampleData.txt")
+
+m_df <- read.delim("/Users/villiamjensen/Documents/jegprøvernoget/output.txt")
+```
+
+```{r}
+Sys.setenv(BUILD_ALL='true')  # Build all the models on installation
+Sys.setenv(MAKEFLAGS='-j 4')  # Use 4 cores for compilation (or the number you want)
+
+install.packages("hBayesDM")  # Install from CRAN
+## or
+devtools::install_github("CCS-Lab/hBayesDM", subdir="R")  # Install from GitHub
+```
+
+```{r}
+library(hBayesDM)
+```
+
+
+```{r}
+system.file("extdata/gng_exampleData.txt", package="hBayesDM")
+```
+
+```{r}
+# Specify the file path for the output text file
+output_txt_file <- "/Users/villiamjensen/Documents/jegprøvernoget/output.txt"
+
+df_woop <- df %>% 
+  mutate("subjID" = id, 
+         "cue" = saturation_diff_abs,
+         "keyPressed" = keypress,
+         "outcome" = correct)
+
+df_woop$keyPressed <- as.factor(df_woop$keyPressed)
+#df_woop$correct_response <- as.factor(df_woop$correct_response)
+df_woop$outcome <- as.factor(df_woop$outcome)
+df_woop$subjID <- as.factor(df_woop$subjID)
+
+df_woop <- df_woop %>% select(-color_left, -color_right, -keypress, -time_stamp)
+
+#df_woop <- df_woop %>% ungroup() %>% select(subjID, cue, keyPressed, outcome, reaction_time)
+
+df_woop <- df_woop %>% 
+  mutate("keyPressed" = ifelse(keyPressed == "left", 0, 1))
+
+# Save the data frame to a text file
+write.table(df_woop, file = output_txt_file, sep = '\t', row.names = FALSE)
+```
+
+
+```{r}
+output1 = gng_m1(data="/Users/villiamjensen/Documents/jegprøvernoget/output.txt", niter=2000, nwarmup=1000, nchain=4, ncore=4)
+```
+
+
+
+```{r}
+plot(output1, type="trace", fontSize=11) 
+```
+```{r}
+plot(output1, type="trace", inc_warmup=T) 
+```
+
+```{r}
+plot(output1)
+```
+```{r}
+plotInd(output1, "ep")
+```
+
+
