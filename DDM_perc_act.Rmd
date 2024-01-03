@@ -5,9 +5,6 @@ date: "2023-12-07"
 ---
 
 ```{r setup, include=FALSE}
-b_df <- read.delim("/Users/villiamjensen/Downloads/sampleData_hBayesDM_0.2.0-1d9qdvj/gng_exampleData.txt")
-
-m_df <- read.delim("/Users/villiamjensen/Documents/jegprøvernoget/output.txt")
 ```
 
 ```{r}
@@ -30,49 +27,270 @@ system.file("extdata/gng_exampleData.txt", package="hBayesDM")
 
 ```{r}
 # Specify the file path for the output text file
-output_txt_file <- "/Users/villiamjensen/Documents/jegprøvernoget/output.txt"
+output_txt_file <- "/Users/villiamjensen/Documents/jegprøvernoget/flodhest.txt"
 
-df_woop <- df %>% 
+
+df_setup <- df %>% 
   mutate("subjID" = id, 
-         "cue" = saturation_diff_abs,
-         "keyPressed" = keypress,
-         "outcome" = correct)
+         "choice" = circle_right,
+         "RT" = reaction_time
+         )
 
-df_woop$keyPressed <- as.factor(df_woop$keyPressed)
-#df_woop$correct_response <- as.factor(df_woop$correct_response)
-df_woop$outcome <- as.factor(df_woop$outcome)
-df_woop$subjID <- as.factor(df_woop$subjID)
+df_setup <- df_setup %>% filter(RT > 0.105)
 
-df_woop <- df_woop %>% select(-color_left, -color_right, -keypress, -time_stamp)
+df_setup <- df_setup %>% 
+ mutate("choice" = ifelse(choice == 1, 2, 1))
 
-#df_woop <- df_woop %>% ungroup() %>% select(subjID, cue, keyPressed, outcome, reaction_time)
+df_setup$RT[is.na(df_setup$RT)] <- df_setup$choice[is.na(df_setup$RT)]
 
-df_woop <- df_woop %>% 
-  mutate("keyPressed" = ifelse(keyPressed == "left", 0, 1))
+df_setup$choice[is.na(df_setup$choice)] <- df_setup$RT[is.na(df_setup$choice)]
 
+df_setup$choice <- as.integer(df_setup$choice)
+
+df_setup$subjID <- as.integer(df_setup$subjID)
+
+df_setup$RT <- as.double(df_setup$RT)
+
+# Replace existing IDs with number IDs
+df_setup$subjID <- as.integer(factor(df_setup$subjID, levels = unique(df_setup$subjID)))
+
+
+```
+
+```{r}
+df %>% ungroup() %>% select(reaction_time) %>% 
+  arrange(reaction_time)
+```
+
+
+```{r}
+#creating other data frames
+df_saturation <- df_setup %>% 
+  filter(high_sat_right == 1) %>%
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+
+
+
+df_saturation_low <- df_setup %>% 
+  filter(high_sat_right == 0) %>% 
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+```
+
+
+```{r}
+df_blue <- df_setup %>% 
+  filter(hue_right == 0.67) %>% 
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+
+df_red <- df_setup %>% 
+  filter(hue_right == 1) %>% 
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+
+df_green <- df_setup %>% 
+  filter(hue_right == 0.33) %>% 
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+```
+
+```{r}
+#creating other data frames
+df_value_high <- df_setup %>% 
+  filter(high_lum_right == 1) %>%
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+
+
+
+df_value_low <- df_setup %>% 
+  filter(high_lum_right == 0) %>% 
+  ungroup() %>% 
+  select(c(subjID, RT, choice))
+```
+
+
+```{r}
+#creating 
 # Save the data frame to a text file
-write.table(df_woop, file = output_txt_file, sep = '\t', row.names = FALSE)
+write.table(na.omit(df_saturation), file = "/Users/villiamjensen/Documents/jegprøvernoget/saturation_high.txt", sep = '\t', row.names = FALSE)
+```
+
+```{r}
+write.table(na.omit(df_saturation_low), file = "/Users/villiamjensen/Documents/jegprøvernoget/saturation_low.txt", sep = '\t', row.names = FALSE)
+```
+
+```{r}
+write.table(na.omit(df_blue), file = "/Users/villiamjensen/Documents/jegprøvernoget/right_blue.txt", sep = '\t', row.names = FALSE)
+write.table(na.omit(df_red), file = "/Users/villiamjensen/Documents/jegprøvernoget/right_red.txt", sep = '\t', row.names = FALSE)
+write.table(na.omit(df_green), file = "/Users/villiamjensen/Documents/jegprøvernoget/right_green.txt", sep = '\t', row.names = FALSE)
+```
+
+```{r}
+write.table(na.omit(df_value_high), file = "/Users/villiamjensen/Documents/jegprøvernoget/value_high.txt", sep = '\t', row.names = FALSE)
+write.table(na.omit(df_value_low), file = "/Users/villiamjensen/Documents/jegprøvernoget/value_low.txt", sep = '\t', row.names = FALSE)
+```
+
+
+#running saturation high model
+```{r}
+#print(head(df_woop))
+output_saturation <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/saturation_high.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
+```
+
+#running saturation low model
+```{r}
+output_saturation_low <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/saturation_low.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4)
+```
+
+#diagnoistic saturation
+
+```{r}
+plot(output_saturation, type="trace", inc_warmup=T) 
+```
+
+```{r}
+plot(output_saturation_low, type = "trace", inc_warmup = T)
+```
+
+#visualisation saturations
+
+```{r}
+plot(output_saturation)
+plot(output_saturation_low)
+```
+
+
+
+```{r}
+plot(output_saturation_low)
+```
+#LOOIC saturation
+
+```{r}
+printFit(output_saturation, output_saturation_low)
+```
+```{r}
+printFit(output_blue, output_green, output_red)
+```
+
+```{r}
+plotInd(output_saturation)
+
+plotInd(output_saturation_low)
+```
+
+#running color models
+```{r}
+output_blue <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/right_blue.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
+```
+```{r}
+output_red <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/right_red.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
+```
+
+```{r}
+output_green <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/right_green.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
+```
+
+```{r}
+output_blue$fit
+output_green$fit
+output_red$fit
 ```
 
 
 ```{r}
-output1 = gng_m1(data="/Users/villiamjensen/Documents/jegprøvernoget/output.txt", niter=2000, nwarmup=1000, nchain=4, ncore=4)
-```
-
-
-
-```{r}
-plot(output1, type="trace", fontSize=11) 
+output_saturation$fit
+output_saturation_low$fit
 ```
 ```{r}
-plot(output1, type="trace", inc_warmup=T) 
+plot(output_blue, type = "trace", inc_warmup = T)
+```
+```{r}
+plot(output_green, type = "trace", inc_warmup = T)
 ```
 
 ```{r}
-plot(output1)
+plot(output_red, type = "trace", inc_warmup = T)
 ```
+# high and low value models
+
 ```{r}
-plotInd(output1, "ep")
+output_value_high <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/value_high.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
 ```
 
+
+```{r}
+output_value_low <- choiceRT_ddm(data = "/Users/villiamjensen/Documents/jegprøvernoget/value_low.txt", 
+                                  niter = 4000, 
+                                  nwarmup = 1000, 
+                                  nchain = 4, 
+                                  ncore = 4
+                                  )
+```
+
+```{r}
+plot(output_value_high, type = "trace", inc_warmup = T)
+
+```
+
+```{r}
+plot(output_value_low, type = "trace", inc_warmup = T)
+```
+
+```{r}
+plot(output_value_high)
+```
+
+```{r}
+output_value_high$fit
+output_value_low$fit
+```
+```{r}
+printFit(output_value_high, output_value_low)
+```
+```{r}
+plot(output_green)
+```
+```{r}
+plot(output_blue)
+```
+```{r}
+plot(output_red)
+```
+
+```{r}
+plot(output_value_low)
+```
 

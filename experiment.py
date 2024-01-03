@@ -19,7 +19,7 @@ elif box.Cancel:  # To cancel the experiment if the popup is closed
     core.quit()
 
 # define window
-win = visual.Window(fullscr=True, color="black")
+win = visual.Window(fullscr=False, color="black")
 
 # define stop watch
 stopwatch = core.Clock()
@@ -113,7 +113,7 @@ def show_circles():
     )
 
 # preparing circles stimulus
-for _ in range(50):
+for _ in range(5):
     # show stimulus circles
     (
         brightness_left, size_left, hue_left, saturation_left,
