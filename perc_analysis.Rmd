@@ -5,77 +5,432 @@ date: "2023-11-30"
 ---
 
 ```{r setup, include=FALSE}
-pacman::p_load(tidyverse)
+#loading in packages
+pacman::p_load(tidyverse, lme4, lmerTest, stringr, sjPlot)
 
+#setting theme
 theme_set(theme_bw())
 ```
 
 ```{r}
-df <- 
-  list.files(path = "/Users/villiamjensen/Documents/Cognitive Science/3. semester/Perception and Action/Exam/logfiles/", pattern = "*.csv", full.names = TRUE) %>%
-  map_df(~read_csv(.))
+install.packages("hBayesDM", dependencies=TRUE)
+library(hBayesDM)
+```
 
+
+## Data Preparation
+```{r, warning = FALSE, echo = F, message = FALSE}
+#loading in data
+df <- 
+  list.files(path = "/Users/villiamjensen/Documents/Cognitive Science/3. semester/Perception and Action/mousetracking/perc_act/logfiles", pattern = "*.csv", full.names = TRUE) %>%
+  map_df(~read_csv(.), show_col_types = FALSE)
+
+#renaming columns
 
 df <- df %>% 
   rename("trial" = ...1,
          "correct" = correct_choice
          )
 
-
+#since python starts indexing at 1, I have added a 1 - personal preference :)
 df$trial <- df$trial + 1
+
+#
+df$same_size <- as.factor(df$same_size)
+
+#
+#df$correct <- as.factor(df$correct)
 
 ```
 
+
 ```{r}
+#due to slip ups in logging of IDs, this code is necessary
+df <- df %>% 
+  mutate("id" = ifelse(age == 25 & id == 24, id + 100, id))
+
+df <- df %>%
+  mutate("id" = ifelse(age == 23 & id == 26, id + 100, id))
+
+df <- df %>% 
+  mutate("id" = ifelse(age == 23 & id == 27, id + 100, id))
+
+
+
+
+```
+
+
+```{r}
+#removing outliers in reaction time
+df <- df %>%
+  filter(reaction_time >= mean(reaction_time) - 2 * sd(reaction_time) &
+         reaction_time <= mean(reaction_time) + 2 * sd(reaction_time))
+
+df <- df %>% filter(reaction_time >= 0.1)
+```
+
+
+```{r}
+#creating new columns
 df <- df %>% 
   mutate(
-    "hue_diff" = hue_left - hue_right,
+    "correct_response" = ifelse(size_left > size_right, "left", "right"),
+    "correct_color" = ifelse(correct_response == "left", hue_left, hue_right),
+    "saturation_congruence" = ifelse(correct_response == "left" & saturation_left > saturation_right | 
+                                       correct_response == "right" & saturation_right > saturation_left, 1, 0),
+    "value_congruence" = ifelse(correct_response == "left" & brightness_left > saturation_right | correct_response == "right" & brightness_right > brightness_left, 1, 0),
     "size_diff" = size_left - size_right,
+    "saturation_diff" = saturation_left - saturation_right,
     "brightness_diff" = brightness_left - brightness_right,
-    "hue_diff_abs" = abs(hue_diff),
+    "size_diff_perc" = abs((size_left - size_right)/size_right) * 100,
     "size_diff_abs" = abs(size_diff),
+    "saturation_diff_abs" = abs(saturation_diff),
     "brightness_diff_abs" = abs(brightness_diff)
    )
 ```
 
 ```{r}
-df <- df %>% group_by(id) %>% 
-  mutate("sum_correct" = sum(correct),
-         "avg_correct" = sum(correct)/length(trial)
+df <- df %>% 
+  mutate(
+    "high_sat_right" = ifelse(saturation_right >= 0.8, 1, 0),
+    "high_lum_right" =ifelse(brightness_right >= 0.8, 1, 0)
   )
+```
 
-df_aggr <- df %>% aggregate(sum_correct ~ id + gender, mean)
+
+```{r}
+#logging whether participant chose the most saturated and brightest respectively and which hue was chosen
+df <- df %>%
+  mutate("sat_choice" =
+           ifelse(saturation_left > saturation_right & keypress == "left" | saturation_left < saturation_right & keypress == "right", 1, 0),
+         "bright_choice" = ifelse(brightness_left > brightness_right & keypress == "left" | brightness_left < brightness_right & keypress == "right", 1, 0),
+         "hue_choice" = ifelse(keypress == 'left', hue_left, hue_right))
+```
+
+```{r}
+#comparing reaction times between first 5 trials and afterwards
+df %>% filter(trial < 5) %>% ungroup() %>% 
+  summarize(mean(reaction_time), sd(reaction_time))
+
+df %>% filter(trial > 5) %>% ungroup() %>% 
+  summarize(mean(reaction_time), sd(reaction_time))
+
+```
+
+
+```{r}
+#making hue choice
+df$hue_choice <- as.factor(df$hue_choice)
   
 ```
 
 
+#Data Checking
 ```{r}
-df %>% 
-  ggplot(aes(x = hue_diff_abs, y = correct)) + 
-  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
- labs(title = "hue")
+#getting percentage of how good each participant was
+# df %>% filter(same_size == 0, size_diff_perc <= 30) %>% group_by(id) %>% 
+#   summarize(sum(correct/length(trial)), mean(reaction_time))
+```
 
-df %>% 
-  ggplot(aes(x = brightness_diff_abs, y = correct)) + 
-  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-   labs(title = "brightness")
+```{r}
+# df %>% filter(same_size == 0, size_diff_perc <= 30) %>% group_by(id) %>% 
+#   summarize(sum(correct/length(trial)), mean(reaction_time))
+```
 
-df %>% 
-  ggplot(aes(x = size_diff_abs, y = correct)) + 
-  geom_point() + geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
+
+```{r}
+#calculating mean for each participant
+# participant_means <- df %>% filter(same_size == 0, size_diff_perc > 30) %>% 
+#   group_by(id) %>%
+#   summarise(mean_value = mean(correct, na.rm = TRUE))
+# 
+# #overall mean calculating
+# grand_mean <- mean(participant_means$mean_value, na.rm = TRUE)
+# 
+# 
+# #grand mean
+# print(grand_mean)
+
+```
+
+
+```{r}
+#sample description
+# df %>% 
+#   group_by(gender) %>% 
+#   summarize("# of participants" = length(unique(id)))
+```
+```{r}
+#age description
+# df %>% 
+#   ungroup() %>% 
+#   summarize(mean(age), sd(age))
+```
+```{r}
+#min and max age
+# df %>% 
+#   ungroup() %>% 
+#   summarize(min(age), max(age))
+```
+
+
+
+```{r}
+#saturation congruence mean reaction time
+# df %>% group_by(saturation_congruence) %>% 
+#   summarize(mean(reaction_time))
+# #average reaction time per hue
+# df %>% group_by(correct_color) %>% 
+#   summarize(mean(reaction_time))
+```
+
+
+
+## Visualizations
+```{r}
+
+# #df %>% 
+#   ggplot(aes(x = brightness_diff_abs, y = correct)) + 
+#   geom_bar() + 
+#   labs(title = "brightness")
+
+df$correct <- as.numeric(df$correct)
+
+df %>% filter(same_size == 0) %>% 
+  ggplot(aes(x = size_diff_perc, y = correct)) + 
+  geom_jitter() + geom_smooth(method = "glm", method.args = list(family = "binomial")) + 
   labs(title = "size")
+
+
+df %>%
+  ggplot(aes(x = size_diff_perc, y = correct)) +
+  geom_point() + 
+  geom_smooth()
 ```
+
+```{r}
+# df %>% filter(brightness_diff == 0, same_size == 1) %>% 
+#   ggplot(aes(x = hue_choice, sat_choice, color = hue_choice)) +
+#   geom_jitter() +
+#   geom_hline(yintercept = 0.5, color = "black", linetype = "dashed") + 
+#    geom_label(
+#     label= "Threshold", 
+#     x=2,
+#     y=0.5,
+#     label.size = 0.75,
+#     color = "black") +
+#   scale_color_manual(values = c("green", "blue", "red"))
+```
+
+
+## Analysis of Data
 
 
 
 ```{r}
 
+m_size_diff <- glmer(data = df, sat_choice ~ saturation_left + saturation_right + (1 |id), family = binomial)
+
+summary(m_size_diff)
+
+df %>% group_by(same_size) %>% 
+  summarize(mean(saturation_left, mean(saturation_right)))
+
+
+
+# when circles are the same size, are participants more likely to chose the more saturated circle?
+df %>% filter(same_size == 1 & brightness_left == brightness_right & hue_left == hue_right) %>% 
+  summarize(mean(sat_choice))
+
+# when circles are the same size, are participants more likely to chose the brighter circle?
+df %>% filter(same_size == 1 & saturation_left == saturation_right & hue_left == hue_right) %>% 
+  summarize(mean(bright_choice))
+
+
+#when circles are the same size, are participants more likely to chose a specific hue?
+df %>% filter(same_size == 1 & saturation_left == saturation_right & brightness_left == brightness_right) %>% group_by(hue_choice) %>% 
+  summarize(length(hue_choice))
+
+# df_cheese <- %>% %>% filter(same_size == 1 & saturation_left == saturation_right & brightness_left == brightness_right)
+# 
+# df$same_size <- as.factor(df$same_size)
+# summary(glmer(hue_choice ~ same_size + (1|id), data = df, family = "binomial"))
 ```
 
 
 ```{r}
 
+df %>% filter(reaction_time < 5) %>% 
+  ggplot(aes(x = hue_choice, y = reaction_time, fill = hue_choice)) + 
+  geom_boxplot()
+```
+
+#all the following code is bootstrapping to get final plot
+```{r}
+mean_RT <- df %>% filter(reaction_time < 3) %>% 
+  group_by(hue_choice) %>%
+  summarize(mean = mean(reaction_time))
+
+```
+
+```{r}
+bootstrapped_samples <- df %>% 
+  infer::rep_sample_n(size = nrow(df), replace = TRUE, reps = 100)
+
+df %>% 
+  ggplot(aes(reaction_time)) +
+  geom_density() +
+  ggtitle("Empirical")
+
+ bootstrapped_samples %>% 
+  ggplot(aes(reaction_time)) +
+  geom_density() +
+  ggtitle("Bootstrapped")
+```
+```{r}
+bootstrapped_mean_RT = bootstrapped_samples %>%
+  group_by(replicate, hue_choice) %>% 
+  summarize(boot_mean = mean(reaction_time))
 ```
 
 
+```{r}
+bootstrapped_CI = bootstrapped_mean_RT %>%
+  group_by(hue_choice) %>% 
+  summarize(CILow = quantile(boot_mean, .025), CIHigh = quantile(boot_mean, .975))
+```
+
+```{r}
+mean_CI_RT <- left_join(mean_RT, bootstrapped_CI)
+```
+
+```{r}
+mean_CI_RT %>%
+  ggplot(aes(hue_choice, mean)) +
+  geom_errorbar(aes(ymin = CILow, ymax = CIHigh, color = hue_choice), size = 1) +
+  geom_point(aes(color = hue_choice), size = 3) +
+  scale_color_manual(values = c("chartreuse3", "royalblue", "tomato2"), 
+                     labels = c("Green", "Blue", "Red")) +
+  labs(x = "Hue Choice", y = "RT in seconds", title = "Reaction Time per Hue Chosen") +
+  scale_x_discrete(labels = c("Green", "Blue", "Red")) +
+  theme(legend.position = "None")
+```
+##slut på eventyr - continued analysis
+
+
+
+#saturation analysis
+
+
+
+```{r}
+df <- df %>% mutate(
+  "circle_right" = ifelse(keypress == "right", 1, 0)
+)
+```
+
+
+```{r}
+df$hue_right <- as.factor(df$hue_right)
+summary(glmer(data = df, circle_right ~ hue_right + saturation_right + brightness_right + (1|id) , family = "binomial"))
+```
+
+
+
+```{r}
+df$high_sat_right <- as.factor(df$high_sat_right) 
+df$high_lum_right <- as.factor(df$high_lum_right)
+
+summary(glmer(data = df, circle_right ~ hue_right * high_sat_right * high_lum_right + (1|id), family = "binomial"))
+```
+```{r}
+mor_status ~ pisa_test + lande
+```
+
+
+```{r}
+df$saturation_diff_abs <- as.numeric(df$saturation_diff_abs)
+rt_model <- lmer(data= df, reaction_time * 10  ~ hue_choice * saturation_diff * brightness_diff_abs + (1|id))
+summary(rt_model)
+```
+
+```{r}
+tab_model(rt_model)
+```
+
+```{r}
+
+df$high_sat_right <- as.factor(df$high_sat_right)
+df$high_lum_right <- as.factor(df$high_lum_right)
+right_model <- glmer(data= df, circle_right ~ hue_right * high_sat_right*high_lum_right + (1|id), family = "binomial")
+summary(right_model)
+
+```
+```{r}
+tab_model(right_model)
+```
+
+```{r}
+m1 <- glmer(data= df, circle_right ~ hue_right + high_sat_right*high_lum_right + (1|id), family = "binomial")
+
+```
+
+
+#power analysis
+```{r}
+power_FLP_skr <- mixedpower(model = m1, data = df,
+                        fixed_effects = c("hue_right", "high_sat_right", "high_lum_right"),
+                        simvar = "id", steps = c(20,30,40,50),
+                        critical_value = 2, n_sim = 1000)
+
+print(power_FLP_skr)
+```
+
+```{r}
+power_FLP_RT <- mixedpower(model = rt_model, data = df,
+                        fixed_effects = c("hue_choice", "saturation_diff_abs", "brightness_diff_abs"),
+                        simvar = "id", steps = c(20,30,40,50),
+                        critical_value = 2, n_sim = 1000)
+
+print(power_FLP_RT)
+```
+
+```{r}
+power_FLP_RT_big <- mixedpower(model = rt_model, data = df,
+                        fixed_effects = c("hue_choice", "saturation_diff_abs", "brightness_diff_abs"),
+                        simvar = "id", steps = c(100, 200, 300, 400),
+                        critical_value = 2, n_sim = 200)
+
+print(power_FLP_RT)
+```
+
+```{r}
+library(mixedpower)
+```
+
+```{r}
+power_FLP <- mixedpower(model = right_model, data = df,
+                        fixed_effects = c("hue_right", "high_sat_right", "high_lum_right"),
+                        simvar = "id", steps = c(20,30,40,50),
+                        critical_value = 2, n_sim = 1000)
+
+```
+
+```{r}
+print(power_FLP)
+```
+
+```{r} 
+df %>% 
+  ggplot(aes(x = hue_choice)) + 
+  geom_bar()
+
+```
+
+```{r}
+df %>% 
+  group_by(hue_choice) %>% 
+  summarize()
+```
 
